@@ -18,6 +18,11 @@ import { showLinkDialog } from './features/linkDialog';
 import { showImageInsertDialog } from './features/imageInsertDialog';
 import { parseFenceInfo, replaceFenceLanguage } from './highlighting/fenceInfo';
 import { resolveGrammar } from './highlighting/languageRegistry';
+import {
+  MAX_TABLE_COLUMN_WIDTH,
+  MIN_TABLE_COLUMN_WIDTH,
+  setSelectedTableColumnWidth,
+} from './extensions/tableColumnWidth';
 import type { Editor } from '@tiptap/core';
 import { Selection } from '@tiptap/pm/state';
 import type { Transaction } from '@tiptap/pm/state';
@@ -353,6 +358,15 @@ export function createFormattingToolbar(editor: Editor): HTMLElement {
       action: () => editor.chain().focus().toggleItalic().run(),
       isActive: () => editor.isActive('italic'),
       className: 'italic',
+      requiresFocus: true,
+    },
+    {
+      type: 'button',
+      label: 'Text color',
+      title: 'Set selected text color',
+      icon: { name: 'symbol-color', fallback: 'A' },
+      action: () => {},
+      className: 'text-color-button',
       requiresFocus: true,
     },
     {
@@ -931,6 +945,27 @@ export function createFormattingToolbar(editor: Editor): HTMLElement {
 
     const icon = createIconElement(btn.icon, 'toolbar-icon');
 
+    if (btn.className === 'text-color-button') {
+      const colorInput = document.createElement('input');
+      colorInput.type = 'color';
+      colorInput.value = '#ff0000';
+      colorInput.setAttribute('aria-label', 'Text color');
+      colorInput.title = 'Choose text color';
+      colorInput.className = 'toolbar-color-input';
+      button.style.setProperty('--md4h-current-text-color', colorInput.value);
+      colorInput.addEventListener('mousedown', event => event.stopPropagation());
+      colorInput.addEventListener('click', event => event.stopPropagation());
+      colorInput.addEventListener('input', () => {
+        button.style.setProperty('--md4h-current-text-color', colorInput.value);
+        editor.chain().focus().setMark('htmlColor', { color: colorInput.value }).run();
+        refreshActiveStates();
+      });
+      button.append(icon, colorInput);
+      actionButtons.push({ config: btn, element: button });
+      toolbar.appendChild(button);
+      return;
+    }
+
     button.append(icon);
     if (btn.visibleText) {
       const text = document.createElement('span');
@@ -1306,6 +1341,7 @@ export function createTableMenu(editor: Editor): HTMLElement {
     | {
         label: string;
         action: () => void;
+        keepOpen?: boolean;
       }
   > = [
     {
@@ -1333,6 +1369,15 @@ export function createTableMenu(editor: Editor): HTMLElement {
       label: 'Delete Column',
       action: () => editor.chain().focus().deleteColumn().run(),
     },
+    {
+      label: 'Set Column Width...',
+      keepOpen: true,
+      action: () => {
+        widthControl.hidden = false;
+        widthInput.focus();
+        widthInput.select();
+      },
+    },
     { separator: true },
     {
       label: 'Delete Table',
@@ -1353,11 +1398,39 @@ export function createTableMenu(editor: Editor): HTMLElement {
       menuItem.setAttribute('aria-label', item.label);
       menuItem.onclick = () => {
         item.action();
-        menu.style.display = 'none';
+        if (!item.keepOpen) menu.style.display = 'none';
       };
       menu.appendChild(menuItem);
     }
   });
+
+  const widthControl = document.createElement('form');
+  widthControl.className = 'table-column-width-control';
+  widthControl.hidden = true;
+  widthControl.setAttribute('aria-label', 'Set column width');
+  const widthInput = document.createElement('input');
+  widthInput.type = 'number';
+  widthInput.min = String(MIN_TABLE_COLUMN_WIDTH);
+  widthInput.max = String(MAX_TABLE_COLUMN_WIDTH);
+  widthInput.step = '1';
+  widthInput.value = '180';
+  widthInput.setAttribute('aria-label', 'Column width in pixels');
+  const applyWidth = document.createElement('button');
+  applyWidth.type = 'submit';
+  applyWidth.textContent = 'Apply';
+  const cancelWidth = document.createElement('button');
+  cancelWidth.type = 'button';
+  cancelWidth.textContent = 'Cancel';
+  cancelWidth.onclick = () => {
+    widthControl.hidden = true;
+  };
+  widthControl.append(widthInput, applyWidth, cancelWidth);
+  widthControl.onsubmit = event => {
+    event.preventDefault();
+    const width = Number(widthInput.value);
+    if (setSelectedTableColumnWidth(editor, width)) menu.style.display = 'none';
+  };
+  menu.appendChild(widthControl);
 
   document.body.appendChild(menu);
   return menu;

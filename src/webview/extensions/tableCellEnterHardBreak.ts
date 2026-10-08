@@ -30,6 +30,9 @@ export const TableCellEnterHardBreak = Extension.create({
         if (!this.editor.isActive('tableCell') && !this.editor.isActive('tableHeader')) {
           return false;
         }
+        if (this.editor.isActive('listItem') || this.editor.isActive('taskItem')) {
+          return false;
+        }
         return this.editor.commands.setHardBreak();
       },
     };

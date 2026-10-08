@@ -60,23 +60,26 @@ export const TabIndentation = Extension.create({
           return true;
         }
 
-        // 2. Check for Table - Let Table extension handle it (Next Cell)
-        if (this.editor.isActive('table')) {
-          return false;
-        }
-
-        // 3. Check for Code Block - Let CodeBlockLowlight handle it
+        // 2. Check for Code Block - Let CodeBlockLowlight handle it
         if (this.editor.isActive('codeBlock')) {
           return false;
         }
 
-        // 4. Check for List - Try to indent, don't insert tab if it fails
-        if (this.editor.isActive('listItem') || this.editor.isActive('taskItem')) {
+        // 3. Indent lists before yielding Tab to table cell navigation.
+        if (this.editor.isActive('listItem')) {
           this.editor.commands.sinkListItem('listItem');
+          return true;
+        }
+        if (this.editor.isActive('taskItem')) {
           this.editor.commands.sinkListItem('taskItem');
           // Always return true to prevent focus loss, even if indent failed
           // Don't insert \t in list content - that creates malformed markdown
           return true;
+        }
+
+        // 4. Check for Table - Let Table extension handle it (Next Cell)
+        if (this.editor.isActive('table')) {
+          return false;
         }
 
         // 5. All other contexts (Paragraphs, Headings, Blockquotes, etc.) - Add \t
@@ -88,21 +91,24 @@ export const TabIndentation = Extension.create({
         const { state, dispatch } = this.editor.view;
         const { selection } = state;
 
-        // 1. Check for Table - Let Table extension handle it (Prev Cell)
-        if (this.editor.isActive('table')) {
-          return false;
-        }
-
-        // 2. Check for Code Block - Let CodeBlockLowlight handle it
+        // 1. Check for Code Block - Let CodeBlockLowlight handle it
         if (this.editor.isActive('codeBlock')) {
           return false;
         }
 
-        // 3. Check for List - Lift (Outdent or convert to paragraph)
-        if (this.editor.isActive('listItem') || this.editor.isActive('taskItem')) {
+        // 2. Outdent lists before yielding Shift+Tab to table cell navigation.
+        if (this.editor.isActive('listItem')) {
           this.editor.commands.liftListItem('listItem');
+          return true; // Always capture Shift+Tab in lists
+        }
+        if (this.editor.isActive('taskItem')) {
           this.editor.commands.liftListItem('taskItem');
           return true; // Always capture Shift+Tab in lists
+        }
+
+        // 3. Check for Table - Let Table extension handle it (Prev Cell)
+        if (this.editor.isActive('table')) {
+          return false;
         }
 
         // 4. Images - Outdent stored indentation instead of deleting invisible whitespace.

@@ -30,6 +30,7 @@ import { ImageEnterSpacing } from './extensions/imageEnterSpacing';
 import { MarkdownParagraph } from './extensions/markdownParagraph';
 import { HtmlComment, HtmlCommentInline } from './extensions/htmlComment';
 import { HtmlKbd, HtmlSub, HtmlSup } from './extensions/inlineHtmlMarks';
+import { HtmlColor } from './extensions/inlineHtmlColor';
 import { BlankLinePreservation } from './extensions/blankLinePreservation';
 import { OrderedListMarkdownFix } from './extensions/orderedListMarkdownFix';
 import { MarkdownTaskList } from './extensions/markdownTaskList';
@@ -924,6 +925,7 @@ function initializeEditor(initialContent: string) {
         HtmlKbd, // <kbd>, <sub>, <sup> keep their tags when a paragraph is edited
         HtmlSub,
         HtmlSup,
+        HtmlColor,
         MarkdownCode,
         PreservedMarkdownLiteral,
         CodeBlockWithCopy.configure({

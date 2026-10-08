@@ -14,6 +14,7 @@ import type { JSONContent } from '@tiptap/core';
 import { TextSelection } from '@tiptap/pm/state';
 import { HtmlPreservingTable } from '../../webview/extensions/htmlPreservingTable';
 import { TableCellEnterHardBreak } from '../../webview/extensions/tableCellEnterHardBreak';
+import { TabIndentation } from '../../webview/extensions/tabIndentation';
 
 const PIPE_TABLE = `| Name | Notes |
 | ---- | ----- |
@@ -45,6 +46,7 @@ function createTableEditor(): Editor {
       TableHeader,
       TableCell,
       TableCellEnterHardBreak,
+      TabIndentation,
     ],
   });
 }
@@ -151,6 +153,70 @@ describe('TableCellEnterHardBreak', () => {
       expect(hasHardBreak(cell)).toBe(true);
       expect(JSON.stringify(cell)).toContain('"text":"hel"');
       expect(JSON.stringify(cell)).toContain('"text":"lo"');
+    } finally {
+      editor.destroy();
+    }
+  });
+
+  it('creates nested bullet items inside a table cell and preserves them on round-trip', () => {
+    const editor = createTableEditor();
+    try {
+      editor.commands.setContent(PIPE_TABLE, { contentType: 'markdown' });
+      placeCaretInCell(editor, 'tableCell', 'hello'.length);
+      expect(editor.commands.toggleBulletList()).toBe(true);
+      expect(editor.commands.keyboardShortcut('Enter')).toBe(true);
+      editor.commands.insertContent('second');
+      expect(editor.commands.keyboardShortcut('Tab')).toBe(true);
+
+      const cell = cellAt(editor.getJSON(), 1, 0);
+      const rootList = cell.content?.[0];
+      expect(rootList?.type).toBe('bulletList');
+      expect(rootList?.content).toHaveLength(1);
+      expect(rootList?.content?.[0]?.content?.[1]?.type).toBe('bulletList');
+      expect(
+        rootList?.content?.[0]?.content?.[1]?.content?.[0]?.content?.[0]?.content?.[0]?.text
+      ).toBe('second');
+
+      const markdown = editor.getMarkdown();
+      expect(markdown).toContain('<table>');
+      expect(markdown).toContain('<ul><li>hello<ul><li>second</li></ul></li></ul>');
+
+      editor.commands.setContent(markdown, { contentType: 'markdown' });
+      const roundTrippedCell = cellAt(editor.getJSON(), 1, 0);
+      expect(roundTrippedCell.content?.[0]?.content?.[0]?.content?.[1]?.type).toBe('bulletList');
+      expect(
+        roundTrippedCell.content?.[0]?.content?.[0]?.content?.[1]?.content?.[0]?.content?.[0]
+          ?.content?.[0]?.text
+      ).toBe('second');
+      expect(editor.getMarkdown()).toContain('<ul><li>hello<ul><li>second</li></ul></li></ul>');
+    } finally {
+      editor.destroy();
+    }
+  });
+
+  it('creates multiple ordered items inside a table cell and preserves them on round-trip', () => {
+    const editor = createTableEditor();
+    try {
+      editor.commands.setContent(PIPE_TABLE, { contentType: 'markdown' });
+      placeCaretInCell(editor, 'tableCell', 'hello'.length);
+      expect(editor.commands.toggleOrderedList()).toBe(true);
+      expect(editor.commands.keyboardShortcut('Enter')).toBe(true);
+      editor.commands.insertContent('second');
+
+      const list = cellAt(editor.getJSON(), 1, 0).content?.[0];
+      expect(list?.type).toBe('orderedList');
+      expect(list?.content).toHaveLength(2);
+      expect(list?.content?.[1]?.content?.[0]?.content?.[0]?.text).toBe('second');
+
+      const markdown = editor.getMarkdown();
+      expect(markdown).toContain('<table>');
+      expect(markdown).toContain('<ol><li>hello</li><li>second</li></ol>');
+
+      editor.commands.setContent(markdown, { contentType: 'markdown' });
+      const roundTrippedList = cellAt(editor.getJSON(), 1, 0).content?.[0];
+      expect(roundTrippedList?.type).toBe('orderedList');
+      expect(roundTrippedList?.content).toHaveLength(2);
+      expect(editor.getMarkdown()).toContain('<ol><li>hello</li><li>second</li></ol>');
     } finally {
       editor.destroy();
     }

@@ -34,6 +34,34 @@ describe('Tab Indentation Extension', () => {
       expect(result).toBe(false);
       expect(mockEditor.isActive).toHaveBeenCalledWith('table');
     });
+
+    it('indents a list item inside a table instead of navigating to the next cell', () => {
+      const sinkMock = jest.fn(() => true);
+      const mockEditor = {
+        view: { state: { selection: {} } },
+        isActive: jest.fn(name => name === 'table' || name === 'listItem'),
+        commands: { sinkListItem: sinkMock },
+      };
+
+      const shortcuts = TabIndentation.config.addKeyboardShortcuts.call({ editor: mockEditor });
+
+      expect(shortcuts['Tab']()).toBe(true);
+      expect(sinkMock).toHaveBeenCalledWith('listItem');
+    });
+
+    it('outdents a list item inside a table instead of navigating to the previous cell', () => {
+      const liftMock = jest.fn(() => true);
+      const mockEditor = {
+        view: { state: { selection: {} } },
+        isActive: jest.fn(name => name === 'table' || name === 'listItem'),
+        commands: { liftListItem: liftMock },
+      };
+
+      const shortcuts = TabIndentation.config.addKeyboardShortcuts.call({ editor: mockEditor });
+
+      expect(shortcuts['Shift-Tab']()).toBe(true);
+      expect(liftMock).toHaveBeenCalledWith('listItem');
+    });
   });
 
   describe('Tab Key - Code Blocks', () => {
@@ -70,7 +98,7 @@ describe('Tab Indentation Extension', () => {
 
       expect(result).toBe(true);
       expect(sinkMock).toHaveBeenCalledWith('listItem');
-      expect(sinkMock).toHaveBeenCalledWith('taskItem');
+      expect(sinkMock).toHaveBeenCalledTimes(1);
       expect(insertMock).not.toHaveBeenCalled();
     });
 
@@ -336,7 +364,7 @@ describe('Tab Indentation Extension', () => {
       const shortcuts = TabIndentation.config.addKeyboardShortcuts.call({ editor: mockEditor });
       expect(shortcuts['Shift-Tab']()).toBe(true);
       expect(liftMock).toHaveBeenCalledWith('listItem');
-      expect(liftMock).toHaveBeenCalledWith('taskItem');
+      expect(liftMock).toHaveBeenCalledTimes(1);
     });
   });
 
