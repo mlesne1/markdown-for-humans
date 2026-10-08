@@ -1544,6 +1544,30 @@
   .toolbar-button > .toolbar-icon {
     pointer-events: none;
   }
+
+  .toolbar-button.text-color-button {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .toolbar-button.text-color-button::after {
+    position: absolute;
+    right: 4px;
+    bottom: 1px;
+    left: 4px;
+    height: 3px;
+    background: var(--md4h-current-text-color);
+    content: '';
+  }
+
+  .toolbar-color-input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+  }
   
   .toolbar-button:hover {
     background-color: var(--md-hover-bg);
@@ -1721,6 +1745,31 @@
     height: 1px;
     background-color: var(--vscode-menu-separatorBackground);
     margin: 4px 0;
+  }
+
+  .table-column-width-control {
+    display: flex;
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .table-column-width-control[hidden] {
+    display: none;
+  }
+
+  .table-column-width-control input {
+    width: 80px;
+    color: var(--vscode-input-foreground);
+    background: var(--vscode-input-background);
+    border: 1px solid var(--vscode-input-border);
+  }
+
+  .table-column-width-control button {
+    color: var(--vscode-button-foreground);
+    background: var(--vscode-button-background);
+    border: 0;
+    padding: 4px 8px;
+    cursor: pointer;
   }
   
   /* ============================================

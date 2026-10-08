@@ -17,6 +17,7 @@ import { BlankLinePreservation } from '../../webview/extensions/blankLinePreserv
 import { CustomImage } from '../../webview/extensions/customImage';
 import { GitHubAlerts } from '../../webview/extensions/githubAlerts';
 import { HtmlComment, HtmlCommentInline } from '../../webview/extensions/htmlComment';
+import { HtmlColor } from '../../webview/extensions/inlineHtmlColor';
 import { HtmlKbd, HtmlSub, HtmlSup } from '../../webview/extensions/inlineHtmlMarks';
 import { HtmlPreservingTable } from '../../webview/extensions/htmlPreservingTable';
 import { MarkdownListItem } from '../../webview/extensions/markdownListItem';
@@ -47,6 +48,7 @@ function createEditor(): Editor {
       CustomImage,
       HtmlComment,
       HtmlCommentInline,
+      HtmlColor,
       HtmlKbd,
       HtmlSub,
       HtmlSup,
@@ -139,6 +141,23 @@ describe('inline raw HTML preservation', () => {
     try {
       setMarkdownContentPreservingSource(editor, 'Press <kbd>Ctrl</kbd> now.');
       expect(editor.view.dom.querySelector('kbd')?.textContent).toBe('Ctrl');
+    } finally {
+      editor.destroy();
+    }
+  });
+
+  it('keeps selected text color as inline HTML after its paragraph is edited', () => {
+    const editor = createEditor();
+    try {
+      setMarkdownContentPreservingSource(
+        editor,
+        'Keep <span style="color: #ff0000">this red text</span>.'
+      );
+      editFirstParagraph(editor);
+
+      expect(getEditorMarkdownForSync(editor)).toBe(
+        'Keep <span style="color: rgb(255, 0, 0)">this red text</span>. EDITED'
+      );
     } finally {
       editor.destroy();
     }

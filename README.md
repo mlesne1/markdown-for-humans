@@ -31,7 +31,9 @@
 
 - **Tab** to the next cell; Tab in the last cell adds a row
 - **Right-click** any cell to insert or delete rows and columns
+- **Set Column Width** from a cell's right-click menu; explicit widths are saved in an HTML `<colgroup>`
 - **Toolbar** controls for inserting and editing tables
+- **Text color** for selected text; colored text is saved as an inline HTML `<span>`
 
 *Stop counting pipes and dashes.*
 

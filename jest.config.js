@@ -9,7 +9,7 @@ module.exports = {
   // @tiptap/markdown's CommonJS test build can load it without widening the
   // node_modules transform surface.
   transform: {
-    'node_modules/marked/lib/marked\\.esm\\.js$': [
+    'node_modules[/\\\\]marked[/\\\\]lib[/\\\\]marked\\.esm\\.js$': [
       'babel-jest',
       {
         babelrc: false,
@@ -18,7 +18,9 @@ module.exports = {
       },
     ],
   },
-  transformIgnorePatterns: ['/node_modules/(?!marked/lib/marked\\.esm\\.js$)'],
+  transformIgnorePatterns: [
+    '[/\\\\]node_modules[/\\\\](?!marked[/\\\\]lib[/\\\\]marked\\.esm\\.js$)',
+  ],
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/**/*.d.ts',

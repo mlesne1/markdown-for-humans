@@ -25,6 +25,8 @@ import { resolve } from 'path';
 import { isMarkdownStructurallyEquivalent } from '../../editor/markdownAstEquivalence';
 import { HtmlComment } from '../../webview/extensions/htmlComment';
 import { HtmlPreservingTable } from '../../webview/extensions/htmlPreservingTable';
+import { HtmlColor } from '../../webview/extensions/inlineHtmlColor';
+import { setSelectedTableColumnWidth } from '../../webview/extensions/tableColumnWidth';
 import { MarkdownParagraph } from '../../webview/extensions/markdownParagraph';
 import { BlankLinePreservation } from '../../webview/extensions/blankLinePreservation';
 import {
@@ -69,6 +71,7 @@ function createEditor(): Editor {
       MarkdownParagraph,
       BlankLinePreservation,
       HtmlComment,
+      HtmlColor,
       Markdown.configure({ markedOptions: { gfm: true, breaks: true } }),
       HtmlPreservingTable.configure({ HTMLAttributes: { class: 'markdown-table' } }),
       TableRow,
@@ -236,6 +239,68 @@ describe('HTML table load from markdown', () => {
       expect(serialized).toContain('<th rowspan="2">State</th>');
       expect(serialized).toContain('<th colspan="2">Actions</th>');
       expect(isMarkdownStructurallyEquivalent(serialized, source)).toBe(true);
+    } finally {
+      editor.destroy();
+    }
+  });
+
+  it('preserves explicit column widths when serializing an HTML table', () => {
+    const editor = createEditor();
+    try {
+      editor.commands.setContent(
+        [
+          '<table>',
+          '  <colgroup><col width="160"><col width="240"></colgroup>',
+          '  <tr><th>Name</th><th>Role</th></tr>',
+          '  <tr><td>Alice</td><td>Developer</td></tr>',
+          '</table>',
+        ].join('\n'),
+        { contentType: 'markdown' }
+      );
+
+      const serialized = getEditorMarkdownForSync(editor, 'strip');
+      expect(serialized).toContain('<colgroup><col width="160"><col width="240"></colgroup>');
+    } finally {
+      editor.destroy();
+    }
+  });
+
+  it('preserves colored text inside an HTML table cell', () => {
+    const editor = createEditor();
+    try {
+      editor.commands.setContent(
+        '<table><tr><td><span style="color: #ff0000">Red</span></td></tr></table>',
+        { contentType: 'markdown' }
+      );
+
+      expect(getEditorMarkdownForSync(editor, 'strip')).toContain(
+        '<span style="color: rgb(255, 0, 0)">Red</span>'
+      );
+    } finally {
+      editor.destroy();
+    }
+  });
+
+  it('sets the selected column width on every row and saves it', () => {
+    const editor = createEditor();
+    try {
+      editor.commands.setContent(
+        '<table><tr><th>Name</th><th>Role</th></tr><tr><td>Alice</td><td>Developer</td></tr></table>',
+        { contentType: 'markdown' }
+      );
+      editor.commands.setTextSelection(4);
+
+      expect(setSelectedTableColumnWidth(editor, 220)).toBe(true);
+      const documentJson = editor.getJSON() as unknown as {
+        content?: Array<{
+          type?: string;
+          content?: Array<{ content?: Array<{ attrs?: { colwidth?: number[] } }> }>;
+        }>;
+      };
+      const table = (documentJson.content ?? []).find(node => node.type === 'table');
+      expect(table?.content?.map(row => row.content?.[0].attrs?.colwidth)).toEqual([[220], [220]]);
+      expect(getEditorMarkdownForSync(editor, 'strip')).toContain('<col width="220">');
+      expect(setSelectedTableColumnWidth(editor, 20)).toBe(false);
     } finally {
       editor.destroy();
     }

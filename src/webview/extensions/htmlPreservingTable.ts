@@ -35,11 +35,34 @@ function renderCellInnerHtml(node: JSONContent): string {
   }
 
   if (node.type === 'text') {
-    return escapeHtml(typeof node.text === 'string' ? node.text : '');
+    const text = escapeHtml(typeof node.text === 'string' ? node.text : '');
+    const colorMark = node.marks?.find(mark => mark.type === 'htmlColor');
+    const color = colorMark?.attrs?.color;
+    if (
+      typeof color === 'string' &&
+      /^(#[\da-f]{3,8}|rgba?\([\d.,%\s]+\)|hsla?\([\d.,%\s]+\)|[a-z]+)$/i.test(color)
+    ) {
+      return `<span style="color: ${escapeHtml(color)}">${text}</span>`;
+    }
+    return text;
   }
 
   if (node.type === 'hardBreak' || node.type === 'hard_break') {
     return '<br>';
+  }
+
+  if (node.type === 'bulletList') {
+    return `<ul>${(node.content ?? []).map(renderCellInnerHtml).join('')}</ul>`;
+  }
+
+  if (node.type === 'orderedList') {
+    const start = Number.isSafeInteger(node.attrs?.start) ? (node.attrs?.start as number) : 1;
+    const startAttribute = start > 1 ? ` start="${start}"` : '';
+    return `<ol${startAttribute}>${(node.content ?? []).map(renderCellInnerHtml).join('')}</ol>`;
+  }
+
+  if (node.type === 'listItem') {
+    return `<li>${(node.content ?? []).map(renderCellInnerHtml).join('')}</li>`;
   }
 
   if (!Array.isArray(node.content)) {
@@ -89,6 +112,49 @@ function renderTableCellSpanAttributes(cell: JSONContent): string {
   return attributes.length > 0 ? ` ${attributes.join(' ')}` : '';
 }
 
+function getTableColumnWidths(rows: JSONContent[]): Array<number | null> {
+  const widths: Array<number | null> = [];
+
+  for (const row of rows) {
+    const cells = Array.isArray(row.content) ? row.content : [];
+    let columnIndex = 0;
+
+    for (const cell of cells) {
+      const colspan =
+        Number.isSafeInteger(cell.attrs?.colspan) && (cell.attrs?.colspan as number) > 1
+          ? (cell.attrs?.colspan as number)
+          : 1;
+      const cellWidths = Array.isArray(cell.attrs?.colwidth) ? cell.attrs.colwidth : [];
+
+      for (let spanIndex = 0; spanIndex < colspan; spanIndex += 1) {
+        const width = cellWidths[spanIndex];
+        if (widths[columnIndex + spanIndex] == null && Number.isSafeInteger(width) && width > 0) {
+          widths[columnIndex + spanIndex] = width;
+        }
+      }
+
+      columnIndex += colspan;
+    }
+  }
+
+  return widths;
+}
+
+function containsBlockList(node: JSONContent): boolean {
+  if (node.type === 'bulletList' || node.type === 'orderedList') {
+    return true;
+  }
+  return Array.isArray(node.content) && node.content.some(containsBlockList);
+}
+
+function renderTableColumnGroup(widths: Array<number | null>): string {
+  if (!widths.some(width => width !== null)) return '';
+  const columns = widths
+    .map(width => (width === null ? '<col>' : `<col width="${width}">`))
+    .join('');
+  return `<colgroup>${columns}</colgroup>`;
+}
+
 function renderTableCell(cell: JSONContent, tagName: 'th' | 'td'): string {
   // Trim only leading/trailing spaces and tabs so edge hardBreaks (`<br>`) stay.
   const innerHtml = renderCellInnerHtml(cell).replace(/^[ \t]+|[ \t]+$/g, '');
@@ -128,7 +194,14 @@ export const HtmlPreservingTable = Table.extend({
     context: RenderContext
   ): string {
     const htmlOrigin = Boolean(node.attrs?.htmlOrigin);
-    if (!htmlOrigin) {
+    const rows = Array.isArray(node.content) ? node.content : [];
+    const columnWidths = getTableColumnWidths(rows);
+    const hasColumnWidths = columnWidths.some(width => width !== null);
+    const hasBlockLists = rows.some(
+      row => Array.isArray(row.content) && row.content.some(containsBlockList)
+    );
+
+    if (!htmlOrigin && !hasColumnWidths && !hasBlockLists) {
       // TipTap 3.30.5 did not escape literal pipes returned by renderChildren,
       // so its table output could create extra columns. 3.31.4 escapes them
       // too and leaves already-escaped pipes alone, so this stays a safe guard.
@@ -145,7 +218,6 @@ export const HtmlPreservingTable = Table.extend({
         ? node.attrs.htmlClass.trim()
         : null;
 
-    const rows = Array.isArray(node.content) ? node.content : [];
     const rowHtml = rows
       .map(row => {
         const cells = Array.isArray(row.content) ? row.content : [];
@@ -157,7 +229,8 @@ export const HtmlPreservingTable = Table.extend({
       .join('\n');
 
     const tableOpenTag = className ? `<table class="${escapeHtml(className)}">` : '<table>';
+    const columnGroup = renderTableColumnGroup(columnWidths);
 
-    return `${tableOpenTag}\n${rowHtml}\n</table>`;
+    return `${tableOpenTag}\n${columnGroup ? `  ${columnGroup}\n` : ''}${rowHtml}\n</table>`;
   },
 });
